@@ -1,0 +1,82 @@
+from tensorflow.keras import datasets, layers, models # type: ignore
+import matplotlib.pyplot as plt
+import tensorflow as tf
+from sklearn.metrics import confusion_matrix
+
+import numpy as np
+import seaborn as sns
+import pandas as pd
+
+tf.__version__
+'2.12.0'
+
+%load_ext tensorboard
+logdir = 'logs'
+
+(train_images, train_labels), (test_images, test_labels) = datasets.cifar10.load_data()
+
+train_images = train_images.reshape((60000, 28, 28, 1))
+test_images = test_images.reshape((10000, 28, 28, 1))
+
+train_images, test_images = train_images / 255.0, test_images / 255.0
+
+classes=[0,1,2,3,4,5,6,7,8,9]
+
+model - models.Sequential()
+model.add(layers.Conv2D(32, (3, 3), activation='relu', input_shape=(28, 28, 1)))
+model.add(layers.MaxPooling2D((2, 2)))
+model.add(layers.Conv2D(64, (3, 3), activation='relu'))
+model.add(layers.MaxPooling2D((2, 2)))
+model.add(layers.Conv2D(64, (3, 3), activation='relu'))
+
+model.add(layers.Flatten())
+model.add(layers.Dense(64, activation='relu'))
+model.add(layers.Dense(10, activation='softmax'))
+
+tensorboard_callback = tf.keras.callbacks.TensorBoard(logdir, histogram_freq=1)
+
+
+model.compile(optimizer='adam',
+              loss='sparse_categorical_crossentropy',
+              metrics=['accuracy'])
+
+model.fit(train_images, train_labels, epochs=5, 
+          validation_data=(test_images, test_labels), callbacks=[tensorboard_callback])
+
+y_true = test_labels
+Y_pred = model.predict_classes(test_images)
+
+classes = [0,1,2,3,4,5,6,7,8,9]
+
+con_mat = tf.math.confusion_matrix(labels=y_true, predictions=y_pred).numpy()
+con_mat_norm = np.around(con_mat.astype('float') / con_mat.sum(axis=1)[:, np.newaxis], decimals=2)
+
+con_mat_df = pd.DataFrame(con_mat_norm,
+                            index = classes, 
+                            columns = classes)
+
+figure = plt.figure(figsize=(8, 8))
+sns.heatmap(con_mat_df, annot=True,cmap=plt.cm.Blues)
+plt.tight_layout()
+plt.ylabel('True label')
+plt.xlabel('Predicted label')
+plt.show()
+
+# Calculando as metricas 
+cm = confusion_matrix(y_true, y_pred)
+VP = np.diag(cm)  # True Positivo
+FN = cm.sum(axis=1) - VP  # False Negativo
+FP = cm.sum(axis=0) - VP  # False Positivo
+VN = cm.sum() - (FP + FN + VP)  # True Negativo
+
+sensibilidade = VP / (VP + FN)
+especificidade = VN / (FP + VN)
+acuracia = (VP + VN) / cm.sum()
+precisao = VP / (VP + FP)
+f_score = 2 * (precisao * sensibilidade) / (precisao + sensibilidade)
+
+print(f'Sensibilidade: {np.mean(sensibilidade)}')
+print(f'Especificidade: {np.mean(especificidade)}')
+print(f'Acurácia: {np.mean(acuracia)}')
+print(f'Precisão: {np.mean(precisao)}')
+print(f'F-Score: {np.mean(f_score)}')
